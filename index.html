@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>APK Viewer Pro</title>
+    <link rel="stylesheet" href="style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+    <div id="app">
+        <header id="menu-bar">
+            <div class="menu-left">
+                <button class="menu-btn" id="menu-toggle" aria-label="Меню">☰</button>
+                <span class="menu-item" data-menu="view">👁️ Вид</span>
+                <span class="menu-item" data-menu="help">❓ Помощь</span>
+            </div>
+            <div class="menu-right">
+                <span id="apk-name" class="status-badge">📱 Нет APK</span>
+                <button id="btn-close-apk" title="Закрыть APK" class="close-apk-btn">✕</button>
+            </div>
+        </header>
+
+        <div id="main-area">
+            <aside id="sidebar">
+                <div id="tree-header">
+                    <span>📁 Explorer</span>
+                    <span id="file-count">0 файлов</span>
+                    <button id="sidebar-close" class="close-sidebar-btn">✕</button>
+                </div>
+                <div id="search-box">
+                    <input type="text" id="search-input" placeholder="🔍 Поиск файлов..." />
+                    <button id="search-clear">✕</button>
+                </div>
+                <div id="tree-container"></div>
+            </aside>
+
+            <div id="resizer"></div>
+
+            <section id="viewer-area">
+                <div id="tabs-container">
+                    <div id="tabs-list"></div>
+                    <div id="tabs-actions">
+                        <button id="close-all-tabs" title="Закрыть все вкладки">✕</button>
+                    </div>
+                </div>
+                <div id="viewer-content">
+                    <div id="welcome-screen">
+                        <div class="welcome-icon">📱</div>
+                        <h2>APK Viewer Pro</h2>
+                        <p>Откройте APK-файл для просмотра содержимого</p>
+                        <button id="welcome-open" class="btn-primary">📂 Открыть APK</button>
+                        <div class="welcome-hint">или перетащите файл сюда</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <footer id="status-bar">
+            <span id="status-file">📄 Файл: —</span>
+            <span id="status-size">📏 Размер: —</span>
+            <span id="status-type">🏷️ Тип: —</span>
+            <span id="status-count">📊 Файлов: 0</span>
+            <span id="status-position">📍 1:1</span>
+        </footer>
+    </div>
+
+    <div id="context-menu" style="display:none;"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js">
+    </script>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
