@@ -922,7 +922,7 @@ const SCParser = {
 };
 
 // ============================================================
-// МОДУЛЬ: APKLoader (исправленный — верхняя панель не скрывается)
+// МОДУЛЬ: APKLoader
 // ============================================================
 const APKLoader = {
     async load(file) {
@@ -963,9 +963,6 @@ const APKLoader = {
             const welcome = document.getElementById('welcome-screen');
             if (welcome) welcome.style.display = 'none';
 
-            // ✅ ФИКС: Убеждаемся, что верхняя панель видна на мобильных
-            this._ensureMenuBarVisible();
-
             // Закрываем sidebar на мобильных
             if (state.isMobile) {
                 this.closeSidebar();
@@ -981,70 +978,6 @@ const APKLoader = {
             alert('Не удалось загрузить APK. Убедитесь, что это корректный ZIP-файл.');
             throw err;
         }
-    },
-
-    // ============================================================
-    // ФИКС: Принудительное отображение верхней панели
-    // ============================================================
-    _ensureMenuBarVisible() {
-        const menuBar = document.getElementById('menu-bar');
-        if (!menuBar) return;
-
-        // Принудительно показываем панель
-        menuBar.style.display = 'flex';
-        menuBar.style.visibility = 'visible';
-        menuBar.style.opacity = '1';
-        menuBar.style.maxHeight = 'none';
-        menuBar.style.overflow = 'visible';
-        menuBar.style.position = 'relative';
-        menuBar.style.zIndex = '50';
-        menuBar.style.minHeight = '44px';
-        menuBar.style.height = '44px';
-
-        // Убираем возможные скрывающие классы
-        menuBar.classList.remove('hidden', 'hide', 'collapsed');
-
-        // Проверяем все элементы внутри панели
-        const menuItems = menuBar.querySelectorAll('*');
-        menuItems.forEach(el => {
-            if (el.style.display === 'none' || 
-                el.style.visibility === 'hidden' || 
-                el.style.opacity === '0' ||
-                el.classList.contains('hidden')) {
-                el.style.display = '';
-                el.style.visibility = 'visible';
-                el.style.opacity = '1';
-                el.classList.remove('hidden');
-            }
-        });
-
-        // Особо проверяем кнопку меню
-        const menuToggle = document.getElementById('menu-toggle');
-        if (menuToggle) {
-            menuToggle.style.display = 'flex';
-            menuToggle.style.visibility = 'visible';
-            menuToggle.style.opacity = '1';
-        }
-
-        // Проверяем статус-бейдж
-        const statusBadge = document.getElementById('apk-name');
-        if (statusBadge) {
-            statusBadge.style.display = 'inline-block';
-            statusBadge.style.visibility = 'visible';
-            statusBadge.style.opacity = '1';
-        }
-
-        // Проверяем кнопку закрытия APK
-        const closeBtn = document.getElementById('btn-close-apk');
-        if (closeBtn) {
-            closeBtn.style.display = 'inline-block';
-            closeBtn.style.visibility = 'visible';
-            if (!closeBtn.disabled) {
-                closeBtn.style.opacity = '0.5';
-            }
-        }
-
-        console.log('✅ Верхняя панель принудительно показана');
     },
 
     _buildTree(paths) {
@@ -1186,63 +1119,22 @@ const APKLoader = {
         document.getElementById('status-count').textContent = '📊 Файлов: 0';
         document.getElementById('status-position').textContent = '📍 1:1';
 
-        // ✅ ФИКС: Убеждаемся, что верхняя панель видна даже после закрытия
-        this._ensureMenuBarVisible();
-
         EventBus.publish('apkClosed');
     },
 
-    // ============================================================
-    // УПРАВЛЕНИЕ БОКОВОЙ ПАНЕЛЬЮ (Мобильные)
-    // ============================================================
     toggleSidebar() {
         const state = AppState.get();
         if (!state.isMobile) return;
         state.sidebarOpen = !state.sidebarOpen;
         document.getElementById('sidebar')?.classList.toggle('open', state.sidebarOpen);
-        document.getElementById('sidebar-overlay')?.classList.toggle('visible', state.sidebarOpen);
-        
-        // Скрываем/показываем плавающую кнопку
-        const mobileNavBtn = document.getElementById('mobile-nav-btn');
-        if (mobileNavBtn) {
-            mobileNavBtn.style.display = state.sidebarOpen ? 'none' : 'flex';
-        }
-        
-        // Убеждаемся, что верхняя панель видна
-        this._ensureMenuBarVisible();
+        document.querySelector('.sidebar-overlay')?.classList.toggle('visible', state.sidebarOpen);
     },
 
     closeSidebar() {
         const state = AppState.get();
         state.sidebarOpen = false;
         document.getElementById('sidebar')?.classList.remove('open');
-        document.getElementById('sidebar-overlay')?.classList.remove('visible');
-        
-        // Показываем плавающую кнопку обратно
-        const mobileNavBtn = document.getElementById('mobile-nav-btn');
-        if (mobileNavBtn && state.apkZip) {
-            mobileNavBtn.style.display = 'flex';
-        }
-        
-        // Убеждаемся, что верхняя панель видна
-        this._ensureMenuBarVisible();
-    },
-
-    openSidebar() {
-        const state = AppState.get();
-        if (!state.isMobile) return;
-        state.sidebarOpen = true;
-        document.getElementById('sidebar')?.classList.add('open');
-        document.getElementById('sidebar-overlay')?.classList.add('visible');
-        
-        // Скрываем плавающую кнопку
-        const mobileNavBtn = document.getElementById('mobile-nav-btn');
-        if (mobileNavBtn) {
-            mobileNavBtn.style.display = 'none';
-        }
-        
-        // Убеждаемся, что верхняя панель видна
-        this._ensureMenuBarVisible();
+        document.querySelector('.sidebar-overlay')?.classList.remove('visible');
     }
 };
 
@@ -3204,157 +3096,33 @@ const SearchManager = {
 };
 
 // ============================================================
-// МОДУЛЬ: UI (полностью исправленный)
+// МОДУЛЬ: UI
 // ============================================================
 const UI = {
     init() {
         const state = AppState.get();
 
-        // ============================================================
-        // МОБИЛЬНАЯ НАВИГАЦИЯ
-        // ============================================================
-        const mobileNavBtn = document.getElementById('mobile-nav-btn');
+        // Mobile menu toggle
         const menuToggle = document.getElementById('menu-toggle');
         const sidebarClose = document.getElementById('sidebar-close');
-        const sidebarOverlay = document.getElementById('sidebar-overlay');
 
-        // Функция обновления состояния кнопки навигации
-        const updateMobileNav = () => {
-            const hasApk = !!state.apkZip;
-            const filesCount = state.fileTree.length;
-
-            if (mobileNavBtn) {
-                if (hasApk) {
-                    mobileNavBtn.classList.add('visible', 'has-apk', 'has-files');
-                    let badge = mobileNavBtn.querySelector('.badge-count');
-                    if (!badge) {
-                        badge = document.createElement('span');
-                        badge.className = 'badge-count';
-                        mobileNavBtn.appendChild(badge);
-                    }
-                    badge.textContent = filesCount || '📁';
-                    if (state.isMobile) {
-                        mobileNavBtn.style.display = 'flex';
-                    }
-                } else {
-                    mobileNavBtn.classList.remove('visible', 'has-apk', 'has-files');
-                    const badge = mobileNavBtn.querySelector('.badge-count');
-                    if (badge) badge.remove();
-                    mobileNavBtn.style.display = 'none';
-                }
-            }
-
-            // Обновляем кнопку меню
-            if (menuToggle) {
-                menuToggle.classList.toggle('has-apk', hasApk);
-                menuToggle.textContent = hasApk ? '📂' : '☰';
-            }
-        };
-
-        // Открытие боковой панели
-        const openSidebar = () => {
-            if (!state.isMobile) return;
-            state.sidebarOpen = true;
-            document.getElementById('sidebar')?.classList.add('open');
-            sidebarOverlay?.classList.add('visible');
-            if (mobileNavBtn) mobileNavBtn.style.display = 'none';
-        };
-
-        // Закрытие боковой панели
-        const closeSidebar = () => {
-            if (!state.isMobile) return;
-            state.sidebarOpen = false;
-            document.getElementById('sidebar')?.classList.remove('open');
-            sidebarOverlay?.classList.remove('visible');
-            if (mobileNavBtn && state.apkZip) {
-                mobileNavBtn.style.display = 'flex';
-            }
-        };
-
-        // Обработчики для кнопок навигации
-        menuToggle?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (state.sidebarOpen) {
-                closeSidebar();
-            } else {
-                openSidebar();
-            }
+        menuToggle?.addEventListener('click', () => {
+            APKLoader.toggleSidebar();
         });
 
-        sidebarClose?.addEventListener('click', closeSidebar);
-        sidebarOverlay?.addEventListener('click', closeSidebar);
-
-        // Плавающая кнопка навигации
-        mobileNavBtn?.addEventListener('click', () => {
-            if (state.sidebarOpen) {
-                closeSidebar();
-            } else {
-                openSidebar();
-            }
+        sidebarClose?.addEventListener('click', () => {
+            APKLoader.closeSidebar();
         });
 
-        // Закрытие по Escape
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && state.sidebarOpen) {
-                closeSidebar();
-            }
+        // Создание оверлея для мобильных
+        const overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', () => {
+            APKLoader.closeSidebar();
         });
 
-        // Закрытие по свайпу влево (для мобильных)
-        let touchStartX = 0;
-        document.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-        });
-        document.addEventListener('touchmove', (e) => {
-            if (!state.sidebarOpen) return;
-            const touchEndX = e.touches[0].clientX;
-            const diff = touchStartX - touchEndX;
-            if (diff > 80) {
-                closeSidebar();
-            }
-        });
-
-        // Обновляем навигацию при изменении состояния
-        EventBus.subscribe('apkLoaded', () => {
-            updateMobileNav();
-            if (state.isMobile && state.apkZip) {
-                setTimeout(() => {
-                    if (mobileNavBtn) {
-                        mobileNavBtn.style.display = 'flex';
-                    }
-                }, 300);
-            }
-        });
-
-        EventBus.subscribe('apkClosed', () => {
-            updateMobileNav();
-            closeSidebar();
-            if (mobileNavBtn) {
-                mobileNavBtn.style.display = 'none';
-            }
-        });
-
-        // Обновляем при изменении размера окна
-        window.addEventListener('resize', () => {
-            state.updateMobile();
-            if (!state.isMobile) {
-                closeSidebar();
-                if (mobileNavBtn) mobileNavBtn.style.display = 'none';
-            } else if (state.apkZip) {
-                if (mobileNavBtn) mobileNavBtn.style.display = 'flex';
-            }
-            updateMobileNav();
-        });
-
-        // Инициализация мобильной навигации
-        updateMobileNav();
-        if (state.isMobile && state.apkZip) {
-            if (mobileNavBtn) mobileNavBtn.style.display = 'flex';
-        }
-
-        // ============================================================
-        // ПУНКТЫ МЕНЮ
-        // ============================================================
+        // Меню пункты
         document.querySelector('[data-menu="view"]')?.addEventListener('click', () => {
             alert('👁️ APK Viewer Pro\n\n' +
                 '📄 Текст: JSON, XML, HTML, CSS, JS, TS, Java, Kotlin, Smali, Swift, Dart\n' +
@@ -3381,12 +3149,9 @@ const UI = {
                 'Esc - Снять выделение\n\n' +
                 '🖱️ Клик правой кнопкой - контекстное меню\n' +
                 '📦 Открыть как архив - просмотр содержимого архивов\n\n' +
-                '📱 На телефонах: кнопка ☰ или плавающая кнопка 📂 для меню');
+                '📱 На телефонах: кнопка ☰ для меню');
         });
 
-        // ============================================================
-        // КНОПКА ОТКРЫТИЯ APK
-        // ============================================================
         document.getElementById('welcome-open')?.addEventListener('click', () => {
             const input = document.createElement('input');
             input.type = 'file';
@@ -3399,9 +3164,6 @@ const UI = {
             input.click();
         });
 
-        // ============================================================
-        // ВКЛАДКИ
-        // ============================================================
         document.getElementById('close-all-tabs')?.addEventListener('click', () => {
             ViewerManager.closeAllTabs();
         });
@@ -3414,9 +3176,6 @@ const UI = {
             }
         });
 
-        // ============================================================
-        // ПОИСК
-        // ============================================================
         const searchInput = document.getElementById('search-input');
         const searchClear = document.getElementById('search-clear');
 
@@ -3429,9 +3188,7 @@ const UI = {
             searchInput.focus();
         });
 
-        // ============================================================
-        // РАЗДЕЛИТЕЛЬ (Resizer) — только для десктопа
-        // ============================================================
+        // Resizer — только для десктопа
         const resizer = document.getElementById('resizer');
         let isResizing = false;
 
@@ -3460,9 +3217,7 @@ const UI = {
             }
         });
 
-        // ============================================================
-        // EVENTBUS ПОДПИСКИ
-        // ============================================================
+        // EventBus подписки
         EventBus.subscribe('fileOpen', async ({ path, node }) => {
             try {
                 const content = await APKLoader.getFileContent(path);
@@ -3495,9 +3250,6 @@ const UI = {
             }
         });
 
-        // ============================================================
-        // ИНИЦИАЛИЗАЦИЯ КОМПОНЕНТОВ
-        // ============================================================
         ContextMenu.init();
         SearchManager.init();
 
@@ -3507,9 +3259,7 @@ const UI = {
             console.error('❌ Ошибка инициализации Monaco:', err);
         });
 
-        // ============================================================
-        // DRAG AND DROP
-        // ============================================================
+        // Drag and Drop
         let dropCounter = 0;
         document.addEventListener('dragover', (e) => e.preventDefault());
         document.addEventListener('dragenter', (e) => {
@@ -3534,9 +3284,7 @@ const UI = {
             }
         });
 
-        // ============================================================
-        // ГОРЯЧИЕ КЛАВИШИ
-        // ============================================================
+        // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'o') {
                 e.preventDefault();
@@ -3568,14 +3316,11 @@ const UI = {
                     SearchManager.clear();
                 }
                 if (state.isMobile && state.sidebarOpen) {
-                    closeSidebar();
+                    APKLoader.closeSidebar();
                 }
             }
         });
 
-        // ============================================================
-        // НАЧАЛЬНОЕ СОСТОЯНИЕ
-        // ============================================================
         document.getElementById('btn-close-apk').disabled = true;
 
         console.log('🚀 APK Viewer Pro запущен');
@@ -3583,66 +3328,6 @@ const UI = {
         console.log('📱 Адаптирован для мобильных устройств');
     }
 };
-
-// ============================================================
-// ФИКС: Верхняя панель всегда видна на мобильных
-// ============================================================
-const fixMobileMenuBar = () => {
-    const state = AppState.get();
-    if (!state.isMobile) return;
-
-    const menuBar = document.getElementById('menu-bar');
-    if (menuBar) {
-        // Принудительно показываем панель
-        menuBar.style.display = 'flex';
-        menuBar.style.visibility = 'visible';
-        menuBar.style.opacity = '1';
-        menuBar.style.maxHeight = 'none';
-        menuBar.style.overflow = 'visible';
-        menuBar.style.position = 'relative';
-        menuBar.style.zIndex = '50';
-        menuBar.style.minHeight = '44px';
-        menuBar.style.height = '44px';
-    }
-
-    // Проверяем все элементы внутри панели
-    const menuItems = document.querySelectorAll('#menu-bar *');
-    menuItems.forEach(el => {
-        if (el.style.display === 'none' || el.style.visibility === 'hidden' || el.style.opacity === '0') {
-            el.style.display = '';
-            el.style.visibility = 'visible';
-            el.style.opacity = '1';
-        }
-    });
-};
-
-// Запускаем фикс сразу после загрузки
-document.addEventListener('DOMContentLoaded', () => {
-    // Ждём немного для уверенности
-    setTimeout(fixMobileMenuBar, 100);
-});
-
-// Запускаем фикс при изменении размера окна
-window.addEventListener('resize', () => {
-    setTimeout(fixMobileMenuBar, 50);
-});
-
-// Запускаем фикс после загрузки APK
-EventBus.subscribe('apkLoaded', () => {
-    setTimeout(fixMobileMenuBar, 50);
-});
-
-// Запускаем фикс при переключении вкладок
-EventBus.subscribe('fileOpen', () => {
-    setTimeout(fixMobileMenuBar, 50);
-});
-
-// ============================================================
-// ЗАПУСК
-// ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-    UI.init();
-});
 
 // ============================================================
 // ЗАПУСК
