@@ -261,6 +261,10 @@ const Utils = {
         return map[ext] || 'application/octet-stream';
     },
 
+    // ============================================================
+    // РАСШИРЕННЫЕ УТИЛИТЫ ДЛЯ АНАЛИЗА ФАЙЛОВ
+    // ============================================================
+
     detectScript(content) {
         const text = typeof content === 'string' ? content : new TextDecoder().decode(content);
         const samples = text.slice(0, 1000);
@@ -304,6 +308,9 @@ const Utils = {
         return samples[script] || samples['Latin'];
     },
 
+    // ============================================================
+    // ПАРСИНГ PNG МЕТАДАННЫХ
+    // ============================================================
     parsePNGMetadata(buffer) {
         const data = new Uint8Array(buffer);
         const result = {
@@ -362,6 +369,9 @@ const Utils = {
         return result;
     },
 
+    // ============================================================
+    // ПАРСИНГ DEX МЕТАДАННЫХ
+    // ============================================================
     parseDEXMetadata(buffer) {
         const data = new Uint8Array(buffer);
         const result = {
@@ -433,6 +443,9 @@ const Utils = {
         return result;
     },
 
+    // ============================================================
+    // ПАРСИНГ GLB МЕТАДАННЫХ
+    // ============================================================
     parseGLBMetadata(buffer) {
         const result = {
             meshes: 0,
@@ -947,11 +960,8 @@ const APKLoader = {
             TreeRenderer.render(tree);
             EventBus.publish('apkLoaded', { zip, tree, count });
 
-            // Показываем контент, скрываем welcome
             const welcome = document.getElementById('welcome-screen');
-            if (welcome) {
-                welcome.style.display = 'none';
-            }
+            if (welcome) welcome.style.display = 'none';
 
             // Закрываем sidebar на мобильных
             if (state.isMobile) {
@@ -1071,15 +1081,12 @@ const APKLoader = {
         document.getElementById('tabs-list').innerHTML = '';
 
         const viewerContent = document.getElementById('viewer-content');
-        // Восстанавливаем welcome-screen
         const welcomeScreen = document.getElementById('welcome-screen');
         if (welcomeScreen) {
-            // Очищаем только контент, но оставляем welcome
             viewerContent.innerHTML = '';
             viewerContent.appendChild(welcomeScreen);
             welcomeScreen.style.display = 'flex';
         } else {
-            // Если welcome нет — создаём заново
             viewerContent.innerHTML = `
                 <div id="welcome-screen">
                     <div class="welcome-icon">📱</div>
@@ -1260,7 +1267,7 @@ const ContextMenu = {
         this._menu = document.getElementById('context-menu');
         document.addEventListener('click', () => this.hide());
         document.addEventListener('touchstart', (e) => {
-            if (this._menu && !this._menu.contains(e.target)) {
+            if (!this._menu.contains(e.target)) {
                 this.hide();
             }
         });
@@ -1447,73 +1454,64 @@ const ViewerManager = {
         const tab = state.openTabs[index];
         if (!tab) return;
 
+        const welcome = document.getElementById('welcome-screen');
+        if (welcome) welcome.style.display = 'none';
+
         const container = document.getElementById('viewer-content');
-
-        // Сохраняем welcome-screen если он есть
         const welcomeScreen = document.getElementById('welcome-screen');
-        const hasWelcome = welcomeScreen !== null;
-
-        // Очищаем контейнер, но сохраняем welcome для восстановления
         container.innerHTML = '';
-
-        // Если есть welcome — прячем его (он будет пересоздан при закрытии)
-        // Но не удаляем из DOM, а просто скрываем
+        if (welcomeScreen) {
+            container.appendChild(welcomeScreen);
+            welcomeScreen.style.display = 'none';
+        }
 
         const ext = tab.ext;
         const fileType = Utils.getFileType(ext);
 
         try {
-            // Создаём wrapper для контента
-            const contentWrapper = document.createElement('div');
-            contentWrapper.id = 'viewer-content-inner';
-            contentWrapper.style.cssText = 'width:100%;height:100%;overflow:hidden;';
-
             switch (fileType) {
                 case 'sc':
-                    this._renderSC(contentWrapper, tab);
+                    this._renderSC(container, tab);
                     break;
                 case 'json':
-                    this._renderJSON(contentWrapper, tab);
+                    this._renderJSON(container, tab);
                     break;
                 case 'xml':
-                    this._renderXML(contentWrapper, tab);
+                    this._renderXML(container, tab);
                     break;
                 case 'csv':
-                    this._renderCSVAdvanced(contentWrapper, tab);
+                    this._renderCSVAdvanced(container, tab);
                     break;
                 case 'dex':
-                    this._renderDEX(contentWrapper, tab);
+                    this._renderDEX(container, tab);
                     break;
                 case 'text':
-                    this._renderText(contentWrapper, tab);
+                    this._renderText(container, tab);
                     break;
                 case 'image':
-                    this._renderImageInfo(contentWrapper, tab);
+                    this._renderImageInfo(container, tab);
                     break;
                 case '3d':
-                    this._renderGLBInfo(contentWrapper, tab);
+                    this._renderGLBInfo(container, tab);
                     break;
                 case 'font':
-                    this._renderFontMetadata(contentWrapper, tab);
+                    this._renderFontMetadata(container, tab);
                     break;
                 case 'archive':
-                    this._renderArchive(contentWrapper, tab);
+                    this._renderArchive(container, tab);
                     break;
                 case 'video':
-                    this._renderVideo(contentWrapper, tab);
+                    this._renderVideo(container, tab);
                     break;
                 case 'audio':
-                    this._renderAudio(contentWrapper, tab);
+                    this._renderAudio(container, tab);
                     break;
                 case 'binary':
-                    this._renderHexEditor(contentWrapper, tab);
+                    this._renderHexEditor(container, tab);
                     break;
                 default:
-                    this._renderUnsupported(contentWrapper, tab);
+                    this._renderUnsupported(container, tab);
             }
-
-            container.appendChild(contentWrapper);
-
         } catch (err) {
             console.error('Ошибка рендеринга:', err);
             container.innerHTML = `
@@ -2781,6 +2779,7 @@ const ViewerManager = {
             tab.content instanceof ArrayBuffer ? new TextDecoder().decode(tab.content) :
             '';
 
+        // На мобильных всегда используем простой просмотрщик для производительности
         const state = AppState.get();
         const useSimpleViewer = state.isMobile || content.length < 30000;
 
@@ -2963,34 +2962,15 @@ const ViewerManager = {
                 this._currentTab = null;
                 this.renderTabs();
 
-                // Возвращаем welcome-screen
-                const container = document.getElementById('viewer-content');
                 const welcome = document.getElementById('welcome-screen');
-                if (welcome) {
-                    container.innerHTML = '';
-                    container.appendChild(welcome);
+                const viewerContent = document.getElementById('viewer-content');
+
+                if (welcome && !state.apkZip) {
+                    viewerContent.innerHTML = '';
+                    viewerContent.appendChild(welcome);
                     welcome.style.display = 'flex';
                 } else {
-                    container.innerHTML = `
-                        <div id="welcome-screen">
-                            <div class="welcome-icon">📱</div>
-                            <h2>APK Viewer Pro</h2>
-                            <p>Откройте APK-файл для просмотра содержимого</p>
-                            <button id="welcome-open" class="btn-primary">📂 Открыть APK</button>
-                            <div class="welcome-hint">или перетащите файл сюда</div>
-                        </div>
-                    `;
-                    document.getElementById('welcome-open')?.addEventListener('click', () => {
-                        const input = document.createElement('input');
-                        input.type = 'file';
-                        input.accept = '.apk,.zip';
-                        input.onchange = (e) => {
-                            if (e.target.files.length) {
-                                APKLoader.load(e.target.files[0]);
-                            }
-                        };
-                        input.click();
-                    });
+                    viewerContent.innerHTML = '';
                 }
 
                 document.getElementById('status-file').textContent = '📄 Файл: —';
@@ -3019,33 +2999,15 @@ const ViewerManager = {
         this._currentTab = null;
         this.renderTabs();
 
-        const container = document.getElementById('viewer-content');
         const welcome = document.getElementById('welcome-screen');
-        if (welcome) {
-            container.innerHTML = '';
-            container.appendChild(welcome);
+        const viewerContent = document.getElementById('viewer-content');
+
+        if (welcome && !state.apkZip) {
+            viewerContent.innerHTML = '';
+            viewerContent.appendChild(welcome);
             welcome.style.display = 'flex';
         } else {
-            container.innerHTML = `
-                <div id="welcome-screen">
-                    <div class="welcome-icon">📱</div>
-                    <h2>APK Viewer Pro</h2>
-                    <p>Откройте APK-файл для просмотра содержимого</p>
-                    <button id="welcome-open" class="btn-primary">📂 Открыть APK</button>
-                    <div class="welcome-hint">или перетащите файл сюда</div>
-                </div>
-            `;
-            document.getElementById('welcome-open')?.addEventListener('click', () => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.apk,.zip';
-                input.onchange = (e) => {
-                    if (e.target.files.length) {
-                        APKLoader.load(e.target.files[0]);
-                    }
-                };
-                input.click();
-            });
+            viewerContent.innerHTML = '';
         }
 
         document.getElementById('status-file').textContent = '📄 Файл: —';
@@ -3134,33 +3096,157 @@ const SearchManager = {
 };
 
 // ============================================================
-// МОДУЛЬ: UI
+// МОДУЛЬ: UI (полностью исправленный)
 // ============================================================
 const UI = {
     init() {
         const state = AppState.get();
 
-        // Mobile menu toggle
+        // ============================================================
+        // МОБИЛЬНАЯ НАВИГАЦИЯ
+        // ============================================================
+        const mobileNavBtn = document.getElementById('mobile-nav-btn');
         const menuToggle = document.getElementById('menu-toggle');
         const sidebarClose = document.getElementById('sidebar-close');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
 
-        menuToggle?.addEventListener('click', () => {
-            APKLoader.toggleSidebar();
+        // Функция обновления состояния кнопки навигации
+        const updateMobileNav = () => {
+            const hasApk = !!state.apkZip;
+            const filesCount = state.fileTree.length;
+
+            if (mobileNavBtn) {
+                if (hasApk) {
+                    mobileNavBtn.classList.add('visible', 'has-apk', 'has-files');
+                    let badge = mobileNavBtn.querySelector('.badge-count');
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'badge-count';
+                        mobileNavBtn.appendChild(badge);
+                    }
+                    badge.textContent = filesCount || '📁';
+                    if (state.isMobile) {
+                        mobileNavBtn.style.display = 'flex';
+                    }
+                } else {
+                    mobileNavBtn.classList.remove('visible', 'has-apk', 'has-files');
+                    const badge = mobileNavBtn.querySelector('.badge-count');
+                    if (badge) badge.remove();
+                    mobileNavBtn.style.display = 'none';
+                }
+            }
+
+            // Обновляем кнопку меню
+            if (menuToggle) {
+                menuToggle.classList.toggle('has-apk', hasApk);
+                menuToggle.textContent = hasApk ? '📂' : '☰';
+            }
+        };
+
+        // Открытие боковой панели
+        const openSidebar = () => {
+            if (!state.isMobile) return;
+            state.sidebarOpen = true;
+            document.getElementById('sidebar')?.classList.add('open');
+            sidebarOverlay?.classList.add('visible');
+            if (mobileNavBtn) mobileNavBtn.style.display = 'none';
+        };
+
+        // Закрытие боковой панели
+        const closeSidebar = () => {
+            if (!state.isMobile) return;
+            state.sidebarOpen = false;
+            document.getElementById('sidebar')?.classList.remove('open');
+            sidebarOverlay?.classList.remove('visible');
+            if (mobileNavBtn && state.apkZip) {
+                mobileNavBtn.style.display = 'flex';
+            }
+        };
+
+        // Обработчики для кнопок навигации
+        menuToggle?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (state.sidebarOpen) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
         });
 
-        sidebarClose?.addEventListener('click', () => {
-            APKLoader.closeSidebar();
+        sidebarClose?.addEventListener('click', closeSidebar);
+        sidebarOverlay?.addEventListener('click', closeSidebar);
+
+        // Плавающая кнопка навигации
+        mobileNavBtn?.addEventListener('click', () => {
+            if (state.sidebarOpen) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
         });
 
-        // Создание оверлея для мобильных
-        const overlay = document.createElement('div');
-        overlay.className = 'sidebar-overlay';
-        document.body.appendChild(overlay);
-        overlay.addEventListener('click', () => {
-            APKLoader.closeSidebar();
+        // Закрытие по Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && state.sidebarOpen) {
+                closeSidebar();
+            }
         });
 
-        // Меню пункты
+        // Закрытие по свайпу влево (для мобильных)
+        let touchStartX = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+        document.addEventListener('touchmove', (e) => {
+            if (!state.sidebarOpen) return;
+            const touchEndX = e.touches[0].clientX;
+            const diff = touchStartX - touchEndX;
+            if (diff > 80) {
+                closeSidebar();
+            }
+        });
+
+        // Обновляем навигацию при изменении состояния
+        EventBus.subscribe('apkLoaded', () => {
+            updateMobileNav();
+            if (state.isMobile && state.apkZip) {
+                setTimeout(() => {
+                    if (mobileNavBtn) {
+                        mobileNavBtn.style.display = 'flex';
+                    }
+                }, 300);
+            }
+        });
+
+        EventBus.subscribe('apkClosed', () => {
+            updateMobileNav();
+            closeSidebar();
+            if (mobileNavBtn) {
+                mobileNavBtn.style.display = 'none';
+            }
+        });
+
+        // Обновляем при изменении размера окна
+        window.addEventListener('resize', () => {
+            state.updateMobile();
+            if (!state.isMobile) {
+                closeSidebar();
+                if (mobileNavBtn) mobileNavBtn.style.display = 'none';
+            } else if (state.apkZip) {
+                if (mobileNavBtn) mobileNavBtn.style.display = 'flex';
+            }
+            updateMobileNav();
+        });
+
+        // Инициализация мобильной навигации
+        updateMobileNav();
+        if (state.isMobile && state.apkZip) {
+            if (mobileNavBtn) mobileNavBtn.style.display = 'flex';
+        }
+
+        // ============================================================
+        // ПУНКТЫ МЕНЮ
+        // ============================================================
         document.querySelector('[data-menu="view"]')?.addEventListener('click', () => {
             alert('👁️ APK Viewer Pro\n\n' +
                 '📄 Текст: JSON, XML, HTML, CSS, JS, TS, Java, Kotlin, Smali, Swift, Dart\n' +
@@ -3187,9 +3273,12 @@ const UI = {
                 'Esc - Снять выделение\n\n' +
                 '🖱️ Клик правой кнопкой - контекстное меню\n' +
                 '📦 Открыть как архив - просмотр содержимого архивов\n\n' +
-                '📱 На телефонах: кнопка ☰ для меню');
+                '📱 На телефонах: кнопка ☰ или плавающая кнопка 📂 для меню');
         });
 
+        // ============================================================
+        // КНОПКА ОТКРЫТИЯ APK
+        // ============================================================
         document.getElementById('welcome-open')?.addEventListener('click', () => {
             const input = document.createElement('input');
             input.type = 'file';
@@ -3202,6 +3291,9 @@ const UI = {
             input.click();
         });
 
+        // ============================================================
+        // ВКЛАДКИ
+        // ============================================================
         document.getElementById('close-all-tabs')?.addEventListener('click', () => {
             ViewerManager.closeAllTabs();
         });
@@ -3214,6 +3306,9 @@ const UI = {
             }
         });
 
+        // ============================================================
+        // ПОИСК
+        // ============================================================
         const searchInput = document.getElementById('search-input');
         const searchClear = document.getElementById('search-clear');
 
@@ -3226,7 +3321,9 @@ const UI = {
             searchInput.focus();
         });
 
-        // Resizer — только для десктопа
+        // ============================================================
+        // РАЗДЕЛИТЕЛЬ (Resizer) — только для десктопа
+        // ============================================================
         const resizer = document.getElementById('resizer');
         let isResizing = false;
 
@@ -3255,7 +3352,9 @@ const UI = {
             }
         });
 
-        // EventBus подписки
+        // ============================================================
+        // EVENTBUS ПОДПИСКИ
+        // ============================================================
         EventBus.subscribe('fileOpen', async ({ path, node }) => {
             try {
                 const content = await APKLoader.getFileContent(path);
@@ -3288,6 +3387,9 @@ const UI = {
             }
         });
 
+        // ============================================================
+        // ИНИЦИАЛИЗАЦИЯ КОМПОНЕНТОВ
+        // ============================================================
         ContextMenu.init();
         SearchManager.init();
 
@@ -3297,7 +3399,9 @@ const UI = {
             console.error('❌ Ошибка инициализации Monaco:', err);
         });
 
-        // Drag and Drop
+        // ============================================================
+        // DRAG AND DROP
+        // ============================================================
         let dropCounter = 0;
         document.addEventListener('dragover', (e) => e.preventDefault());
         document.addEventListener('dragenter', (e) => {
@@ -3322,7 +3426,9 @@ const UI = {
             }
         });
 
-        // Keyboard shortcuts
+        // ============================================================
+        // ГОРЯЧИЕ КЛАВИШИ
+        // ============================================================
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'o') {
                 e.preventDefault();
@@ -3354,11 +3460,14 @@ const UI = {
                     SearchManager.clear();
                 }
                 if (state.isMobile && state.sidebarOpen) {
-                    APKLoader.closeSidebar();
+                    closeSidebar();
                 }
             }
         });
 
+        // ============================================================
+        // НАЧАЛЬНОЕ СОСТОЯНИЕ
+        // ============================================================
         document.getElementById('btn-close-apk').disabled = true;
 
         console.log('🚀 APK Viewer Pro запущен');
@@ -3366,6 +3475,13 @@ const UI = {
         console.log('📱 Адаптирован для мобильных устройств');
     }
 };
+
+// ============================================================
+// ЗАПУСК
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    UI.init();
+});
 
 // ============================================================
 // ЗАПУСК
