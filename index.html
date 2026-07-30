@@ -12,7 +12,7 @@
     <div id="app">
         <header id="menu-bar">
             <div class="menu-left">
-                <button class="menu-btn" id="menu-toggle" aria-label="Меню">☰</button>
+                <button class="menu-btn" id="menu-toggle" aria-label="Открыть меню">☰</button>
                 <span class="menu-item" data-menu="view">👁️ Вид</span>
                 <span class="menu-item" data-menu="help">❓ Помощь</span>
             </div>
@@ -35,6 +35,9 @@
                 </div>
                 <div id="tree-container"></div>
             </aside>
+
+            <!-- Мобильный оверлей для закрытия боковой панели -->
+            <div id="sidebar-overlay"></div>
 
             <div id="resizer"></div>
 
@@ -65,6 +68,12 @@
             <span id="status-position">📍 1:1</span>
         </footer>
     </div>
+
+    <!-- Мобильная кнопка навигации (плавающая) -->
+    <button id="mobile-nav-btn" class="mobile-nav-btn" aria-label="Навигация">
+        <span class="nav-icon">📂</span>
+        <span class="nav-label">Файлы</span>
+    </button>
 
     <div id="context-menu" style="display:none;"></div>
 
