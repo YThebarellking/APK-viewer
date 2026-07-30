@@ -60,7 +60,6 @@ body {
     flex-direction: column;
     height: 100vh;
     width: 100vw;
-    overflow: hidden;
 }
 
 /* ============================================================
@@ -82,7 +81,7 @@ body {
 }
 
 /* ============================================================
-   МЕНЮ (Всегда видимое)
+   МЕНЮ (Mobile First)
    ============================================================ */
 #menu-bar {
     display: flex;
@@ -95,8 +94,6 @@ body {
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
     padding-top: var(--safe-top);
-    z-index: 50;
-    position: relative;
 }
 
 .menu-left {
@@ -191,7 +188,6 @@ body {
     flex: 1;
     overflow: hidden;
     position: relative;
-    min-height: 0;
 }
 
 /* ============================================================
@@ -396,7 +392,7 @@ body {
 }
 
 /* ============================================================
-   ОБЛАСТЬ ПРОСМОТРА (Всегда видимая)
+   ОБЛАСТЬ ПРОСМОТРА
    ============================================================ */
 #viewer-area {
     flex: 1;
@@ -404,11 +400,10 @@ body {
     flex-direction: column;
     background: var(--bg-editor);
     overflow: hidden;
-    min-width: 0;
 }
 
 /* ============================================================
-   ВКЛАДКИ (Всегда видимые)
+   ВКЛАДКИ (Mobile Friendly)
    ============================================================ */
 #tabs-container {
     display: flex;
@@ -420,8 +415,6 @@ body {
     height: 36px;
     flex-shrink: 0;
     overflow: hidden;
-    z-index: 10;
-    position: relative;
 }
 
 #tabs-list {
@@ -515,14 +508,13 @@ body {
 }
 
 /* ============================================================
-   КОНТЕНТ ПРОСМОТРА
+   ОБЛАСТЬ ПРОСМОТРА
    ============================================================ */
 #viewer-content {
     flex: 1;
     position: relative;
     overflow: hidden;
     background: var(--bg-editor);
-    min-height: 0;
 }
 
 #viewer-content .monaco-editor {
@@ -585,7 +577,7 @@ body {
 }
 
 /* ============================================================
-   СТРОКА СОСТОЯНИЯ (Всегда видимая)
+   СТРОКА СОСТОЯНИЯ (Mobile)
    ============================================================ */
 #status-bar {
     display: flex;
@@ -602,8 +594,6 @@ body {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: var(--safe-bottom);
-    z-index: 10;
-    position: relative;
 }
 
 #status-bar span {
@@ -656,88 +646,7 @@ body {
 }
 
 /* ============================================================
-   МОБИЛЬНАЯ ПЛАВАЮЩАЯ КНОПКА
-   ============================================================ */
-.mobile-nav-btn {
-    position: fixed;
-    bottom: 80px;
-    right: 16px;
-    z-index: 300;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    width: 56px;
-    height: 56px;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 50%;
-    box-shadow: 0 4px 20px rgba(88, 166, 255, 0.4);
-    cursor: pointer;
-    touch-action: manipulation;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 0;
-    font-size: 12px;
-}
-
-.mobile-nav-btn:active {
-    transform: scale(0.92);
-}
-
-.mobile-nav-btn .nav-icon {
-    font-size: 22px;
-    line-height: 1;
-}
-
-.mobile-nav-btn .nav-label {
-    font-size: 8px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    opacity: 0.9;
-}
-
-.mobile-nav-btn .badge-count {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background: var(--danger);
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    min-width: 20px;
-    height: 20px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 5px;
-    border: 2px solid var(--bg-primary);
-}
-
-#sidebar-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 150;
-    display: none;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-}
-
-#sidebar-overlay.visible {
-    display: block;
-    opacity: 1;
-    pointer-events: auto;
-}
-
-/* ============================================================
-   ========== СТИЛИ ДЛЯ ПРОСМОТРЩИКОВ ==========
+   ========== НОВЫЕ СТИЛИ ДЛЯ ПРОСМОТРЩИКОВ ==========
    ============================================================ */
 
 /* ============================================================
@@ -1461,15 +1370,6 @@ body {
     animation: fadeIn 0.12s ease;
 }
 
-@keyframes pulse-icon {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-}
-
-.mobile-nav-btn.has-files .nav-icon {
-    animation: pulse-icon 2s ease-in-out infinite;
-}
-
 /* ============================================================
    АДАПТИВНОСТЬ - MOBILE FIRST
    ============================================================ */
@@ -1525,35 +1425,10 @@ body {
         display: none;
     }
 
-    .mobile-nav-btn {
-        display: none !important;
-    }
-
-    .mobile-nav-btn.visible {
-        display: flex !important;
-    }
-
-    .mobile-nav-btn .nav-label {
-        display: none;
-    }
-
-    .mobile-nav-btn {
-        width: 48px;
-        height: 48px;
-        bottom: 70px;
-        right: 12px;
-    }
-
-    .mobile-nav-btn .nav-icon {
-        font-size: 20px;
-    }
-
-    /* Убеждаемся, что верхняя панель видна */
     #menu-bar {
         min-height: 44px;
         height: 44px;
         padding: 0 4px;
-        flex-shrink: 0;
     }
 
     .menu-item {
@@ -1567,12 +1442,6 @@ body {
         padding: 1px 6px;
     }
 
-    #tabs-container {
-        min-height: 36px;
-        height: 36px;
-        flex-shrink: 0;
-    }
-
     .tab .tab-name {
         max-width: 50px;
         font-size: 10px;
@@ -1584,28 +1453,22 @@ body {
         min-height: 36px;
     }
 
+    #tabs-container {
+        min-height: 36px;
+        height: 36px;
+    }
+
     #status-bar {
         font-size: 9px;
         gap: 4px;
         padding: 2px 4px;
         min-height: 28px;
         height: 28px;
-        flex-shrink: 0;
         flex-wrap: nowrap;
     }
 
     #status-bar span {
         font-size: 9px;
-    }
-
-    #viewer-content {
-        flex: 1;
-        min-height: 0;
-    }
-
-    #main-area {
-        flex: 1;
-        min-height: 0;
     }
 
     #welcome-screen .welcome-icon {
@@ -1637,6 +1500,24 @@ body {
         font-size: 13px;
         height: 32px;
         min-height: 32px;
+    }
+
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 150;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.visible {
+        display: block;
+        opacity: 1;
     }
 
     #viewer-content .monaco-editor .monaco-editor-overlaymessage {
@@ -1849,17 +1730,6 @@ body {
         height: 24px;
         padding: 1px 2px;
     }
-
-    .mobile-nav-btn {
-        width: 44px;
-        height: 44px;
-        bottom: 60px;
-        right: 10px;
-    }
-
-    .mobile-nav-btn .nav-icon {
-        font-size: 18px;
-    }
 }
 
 /* Ландшафтная ориентация на телефонах */
@@ -1932,5 +1802,285 @@ body {
         padding-left: max(8px, env(safe-area-inset-left));
         padding-right: max(8px, env(safe-area-inset-right));
         padding-bottom: max(2px, env(safe-area-inset-bottom));
+    }
+}
+
+/* ============================================================
+   МОБИЛЬНАЯ ПЛАВАЮЩАЯ КНОПКА НАВИГАЦИИ
+   ============================================================ */
+.mobile-nav-btn {
+    position: fixed;
+    bottom: 80px;
+    right: 16px;
+    z-index: 300;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 56px;
+    height: 56px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    box-shadow: 0 4px 20px rgba(88, 166, 255, 0.4);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 0;
+    font-size: 12px;
+}
+
+.mobile-nav-btn:active {
+    transform: scale(0.92);
+    box-shadow: 0 2px 10px rgba(88, 166, 255, 0.2);
+}
+
+.mobile-nav-btn .nav-icon {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.mobile-nav-btn .nav-label {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    opacity: 0.9;
+}
+
+.mobile-nav-btn.has-apk {
+    display: flex;
+}
+
+.mobile-nav-btn .badge-count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    border: 2px solid var(--bg-primary);
+}
+
+/* Показываем кнопку только на мобильных */
+@media (max-width: 768px) {
+    .mobile-nav-btn {
+        display: none;
+    }
+
+    .mobile-nav-btn.visible {
+        display: flex;
+    }
+
+    .mobile-nav-btn .nav-label {
+        display: none;
+    }
+
+    .mobile-nav-btn {
+        width: 48px;
+        height: 48px;
+        bottom: 70px;
+        right: 12px;
+    }
+
+    .mobile-nav-btn .nav-icon {
+        font-size: 20px;
+    }
+}
+
+@media (max-width: 400px) {
+    .mobile-nav-btn {
+        width: 44px;
+        height: 44px;
+        bottom: 60px;
+        right: 10px;
+    }
+
+    .mobile-nav-btn .nav-icon {
+        font-size: 18px;
+    }
+}
+
+/* Индикатор, что APK загружен */
+.mobile-nav-btn.has-files .nav-icon {
+    animation: pulse-icon 2s ease-in-out infinite;
+}
+
+@keyframes pulse-icon {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Оверлей для затемнения при открытой боковой панели */
+#sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 150;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+#sidebar-overlay.visible {
+    display: block;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Улучшенная кнопка меню в заголовке */
+.menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 22px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    touch-action: manipulation;
+    min-height: 36px;
+    min-width: 40px;
+}
+
+.menu-btn:hover,
+.menu-btn:active {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+    .menu-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Делаем кнопку более заметной */
+    .menu-btn:not(.has-apk) {
+        color: var(--text-muted);
+    }
+
+    .menu-btn.has-apk {
+        color: var(--accent);
+    }
+}
+
+/* ============================================================
+   ФИКС: Верхняя панель всегда видна на мобильных
+   ============================================================ */
+
+/* Гарантируем, что #menu-bar всегда виден */
+#menu-bar {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: relative !important;
+    z-index: 50 !important;
+}
+
+/* На мобильных устройствах верхняя панель НЕ скрывается */
+@media (max-width: 768px) {
+    #menu-bar {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        position: relative !important;
+        z-index: 50 !important;
+        min-height: 44px !important;
+        height: 44px !important;
+        padding-top: var(--safe-top, 0px) !important;
+    }
+
+    /* Убираем любые возможные трансформации */
+    #menu-bar * {
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    /* Фикс для случая, когда панель может быть скрыта через display:none */
+    .menu-left,
+    .menu-right {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    .menu-btn {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    .menu-item {
+        display: inline-block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    .status-badge {
+        display: inline-block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    .close-apk-btn {
+        display: inline-block !important;
+        visibility: visible !important;
+        opacity: 0.5 !important;
+    }
+
+    .close-apk-btn:not(:disabled):hover,
+    .close-apk-btn:not(:disabled):active {
+        opacity: 1 !important;
+    }
+}
+
+/* Дополнительный фикс для очень маленьких экранов */
+@media (max-width: 400px) {
+    #menu-bar {
+        min-height: 40px !important;
+        height: 40px !important;
+        padding: 0 4px !important;
+    }
+
+    .menu-item {
+        font-size: 10px !important;
+        padding: 2px 4px !important;
+    }
+
+    .status-badge {
+        font-size: 9px !important;
+        padding: 1px 6px !important;
+        max-width: 80px !important;
+    }
+
+    .menu-btn {
+        font-size: 18px !important;
+        padding: 2px 6px !important;
+        min-height: 30px !important;
+        min-width: 32px !important;
+    }
+
+    .close-apk-btn {
+        font-size: 14px !important;
+        padding: 2px 4px !important;
     }
 }
