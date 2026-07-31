@@ -922,62 +922,200 @@ const SCParser = {
 };
 
 // ============================================================
-// МОДУЛЬ: APKLoader
+// МОДУЛЬ: APKLoader (расширенный для всех форматов)
 // ============================================================
 const APKLoader = {
+    // Поддерживаемые форматы архивов
+    _archiveExtensions: new Set(['zip', 'apk', 'aab', 'apks', 'xapk', 'jar', 'war', 'ear']),
+    
+    // Поддерживаемые одиночные файлы (не архивы)
+    _singleFileExtensions: new Set([
+        // Текстовые
+        'json', 'xml', 'txt', 'html', 'htm', 'css', 'js', 'mjs', 'ts',
+        'kt', 'java', 'smali', 'properties', 'yml', 'yaml', 'md',
+        'toml', 'ini', 'cfg', 'conf', 'log', 'sh', 'bash',
+        'py', 'rb', 'go', 'rs', 'c', 'cpp', 'h', 'hpp', 'cs',
+        'php', 'lua', 'r', 'sql', 'gitignore', 'env',
+        'dockerfile', 'makefile', 'cmake', 'gradle', 'xml', 'csv',
+        'tsv', 'swift', 'dart', 'scala', 'groovy', 'proto',
+        'rtf', 'fnt', 'atlas', 'skel', 'bytes', 'bank',
+        // Изображения
+        'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'svg', 'ico',
+        'tiff', 'psd', 'dds', 'tga', 'ktx', 'ktx2', 'hdr', 'exr',
+        // Видео
+        'mp4', 'webm', 'avi', 'mov', 'mkv', 'flv', 'wmv', 'mpeg', 'm4v', 'bik', 'usm',
+        // Аудио
+        'mp3', 'wav', 'ogg', 'flac', 'aac', 'wma', 'm4a', 'opus', 'midi', 'xm', 'mod', 'it', 's3m',
+        // 3D
+        'glb', 'gltf', 'obj', 'fbx', 'stl', 'ply',
+        // Шрифты
+        'ttf', 'otf', 'woff', 'woff2', 'eot',
+        // DEX
+        'dex', 'odex', 'vdex', 'oat',
+        // Документы
+        'pdf', 'docx', 'xlsx', 'pptx', 'epub',
+        // Unity
+        'assets', 'bundle', 'assetbundle', 'unity', 'prefab', 'anim', 'controller', 'mat', 'mesh', 'shader',
+        // Игровые
+        'sc', 'loc', 'lang', 'bank',
+        // AI
+        'onnx', 'tflite', 'gguf',
+        // Бинарные
+        'bin', 'pak', 'obb', 'dat', 'res', 'so', 'class'
+    ]),
+
     async load(file) {
         const state = AppState.get();
         if (state.isProcessing) return;
 
         state.isProcessing = true;
         try {
-            document.getElementById('status-file').textContent = `⏳ Загрузка: ${file.name}...`;
+            const fileName = file.name;
+            const ext = Utils.getExtension(fileName);
+            
+            document.getElementById('status-file').textContent = `⏳ Загрузка: ${fileName}...`;
 
             const arrayBuffer = await file.arrayBuffer();
-            const zip = await JSZip.loadAsync(arrayBuffer);
+            
+            // Проверяем, является ли файл архивом
+            const isArchive = this._archiveExtensions.has(ext) || 
+                             (ext === 'zip' || await this._isZipArchive(arrayBuffer));
 
-            state.apkZip = zip;
-            state.apkName = file.name;
-            state.fileCache.clear();
-
-            const paths = [];
-            zip.forEach((relativePath, zipEntry) => {
-                if (!zipEntry.dir) {
-                    paths.push(relativePath);
+            if (isArchive) {
+                // Загружаем как архив
+                await this._loadArchive(arrayBuffer, file);
+            } else if (this._singleFileExtensions.has(ext)) {
+                // Загружаем как одиночный файл
+                await this._loadSingleFile(arrayBuffer, file);
+            } else {
+                // Пробуем как архив, если не получилось — как бинарный
+                try {
+                    await this._loadArchive(arrayBuffer, file);
+                } catch {
+                    await this._loadSingleFile(arrayBuffer, file);
                 }
-            });
-
-            const tree = this._buildTree(paths);
-            state.fileTree = tree;
-
-            const count = paths.length;
-            document.getElementById('file-count').textContent = `${count} файлов`;
-            document.getElementById('status-count').textContent = `📊 ${count}`;
-            document.getElementById('status-size').textContent = `📏 ${Utils.formatSize(file.size)}`;
-            document.getElementById('apk-name').textContent = `📱 ${file.name}`;
-            document.getElementById('btn-close-apk').disabled = false;
-
-            TreeRenderer.render(tree);
-            EventBus.publish('apkLoaded', { zip, tree, count });
-
-            const welcome = document.getElementById('welcome-screen');
-            if (welcome) welcome.style.display = 'none';
-
-            // Закрываем sidebar на мобильных
-            if (state.isMobile) {
-                this.closeSidebar();
             }
 
             state.isProcessing = false;
-            return { zip, tree, count };
+            return { success: true };
 
         } catch (err) {
             state.isProcessing = false;
-            console.error('Ошибка загрузки APK:', err);
+            console.error('Ошибка загрузки:', err);
             document.getElementById('status-file').textContent = '❌ Ошибка загрузки';
-            alert('Не удалось загрузить APK. Убедитесь, что это корректный ZIP-файл.');
+            alert('Не удалось загрузить файл: ' + err.message);
             throw err;
         }
+    },
+
+    async _isZipArchive(buffer) {
+        try {
+            const zip = await JSZip.loadAsync(buffer);
+            // Проверяем, что это действительно ZIP с файлами
+            const files = Object.keys(zip.files);
+            return files.length > 0;
+        } catch {
+            return false;
+        }
+    },
+
+    async _loadArchive(arrayBuffer, file) {
+        const state = AppState.get();
+        const zip = await JSZip.loadAsync(arrayBuffer);
+
+        state.apkZip = zip;
+        state.apkName = file.name;
+        state.fileCache.clear();
+
+        const paths = [];
+        zip.forEach((relativePath, zipEntry) => {
+            if (!zipEntry.dir) {
+                paths.push(relativePath);
+            }
+        });
+
+        const tree = this._buildTree(paths);
+        state.fileTree = tree;
+
+        const count = paths.length;
+        document.getElementById('file-count').textContent = `${count} файлов`;
+        document.getElementById('status-count').textContent = `📊 ${count}`;
+        document.getElementById('status-size').textContent = `📏 ${Utils.formatSize(file.size)}`;
+        document.getElementById('apk-name').textContent = `📦 ${file.name}`;
+        document.getElementById('btn-close-apk').disabled = false;
+
+        TreeRenderer.render(tree);
+        EventBus.publish('apkLoaded', { zip, tree, count });
+
+        const welcome = document.getElementById('welcome-screen');
+        if (welcome) welcome.style.display = 'none';
+
+        if (state.isMobile) {
+            this.closeSidebar();
+        }
+
+        // Открываем первый файл, если он есть
+        if (paths.length > 0) {
+            const firstFile = paths[0];
+            try {
+                const content = await this.getFileContent(firstFile);
+                await ViewerManager.openFile(firstFile, content, this._findNode(tree, firstFile));
+            } catch (e) {
+                console.log('Не удалось открыть первый файл:', e);
+            }
+        }
+    },
+
+    async _loadSingleFile(arrayBuffer, file) {
+        const state = AppState.get();
+        const ext = Utils.getExtension(file.name);
+
+        // Создаём виртуальное дерево для одного файла
+        const fileName = file.name;
+        const node = {
+            name: fileName,
+            path: fileName,
+            isFolder: false,
+            size: file.size,
+            type: ext,
+            ext: ext,
+        };
+
+        state.apkZip = null; // Не архив
+        state.apkName = fileName;
+        state.fileTree = [node];
+        state.fileCache.clear();
+        state.fileCache.set(fileName, arrayBuffer);
+
+        document.getElementById('file-count').textContent = `1 файл`;
+        document.getElementById('status-count').textContent = `📊 1`;
+        document.getElementById('status-size').textContent = `📏 ${Utils.formatSize(file.size)}`;
+        document.getElementById('apk-name').textContent = `📄 ${fileName}`;
+        document.getElementById('btn-close-apk').disabled = false;
+
+        TreeRenderer.render([node]);
+        EventBus.publish('apkLoaded', { tree: [node], count: 1 });
+
+        const welcome = document.getElementById('welcome-screen');
+        if (welcome) welcome.style.display = 'none';
+
+        if (state.isMobile) {
+            this.closeSidebar();
+        }
+
+        // Открываем файл автоматически
+        await ViewerManager.openFile(fileName, arrayBuffer, node);
+    },
+
+    _findNode(tree, path) {
+        for (const node of tree) {
+            if (node.path === path) return node;
+            if (node.children) {
+                const found = this._findNode(node.children, path);
+                if (found) return found;
+            }
+        }
+        return null;
     },
 
     _buildTree(paths) {
@@ -1037,8 +1175,15 @@ const APKLoader = {
             return state.fileCache.get(path);
         }
 
+        // Если это одиночный файл
+        if (!state.apkZip) {
+            const content = state.fileCache.get(path);
+            if (content) return content;
+            throw new Error(`Файл не найден: ${path}`);
+        }
+
         const zip = state.apkZip;
-        if (!zip) throw new Error('APK не загружен');
+        if (!zip) throw new Error('Архив не загружен');
 
         const entry = zip.file(path);
         if (!entry) throw new Error(`Файл не найден: ${path}`);
@@ -1091,26 +1236,18 @@ const APKLoader = {
                 <div id="welcome-screen">
                     <div class="welcome-icon">📱</div>
                     <h2>APK Viewer Pro</h2>
-                    <p>Откройте APK-файл для просмотра содержимого</p>
-                    <button id="welcome-open" class="btn-primary">📂 Открыть APK</button>
+                    <p>Откройте файл для просмотра содержимого</p>
+                    <button id="welcome-open" class="btn-primary">📂 Открыть файл</button>
                     <div class="welcome-hint">или перетащите файл сюда</div>
                 </div>
             `;
             document.getElementById('welcome-open')?.addEventListener('click', () => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.apk,.zip';
-                input.onchange = (e) => {
-                    if (e.target.files.length) {
-                        APKLoader.load(e.target.files[0]);
-                    }
-                };
-                input.click();
+                this.openFilePicker();
             });
         }
 
         document.getElementById('tree-container').innerHTML = '';
-        document.getElementById('apk-name').textContent = '📱 Нет APK';
+        document.getElementById('apk-name').textContent = '📱 Нет файла';
         document.getElementById('btn-close-apk').disabled = true;
         document.getElementById('file-count').textContent = '0 файлов';
         document.getElementById('status-file').textContent = '📄 Файл: —';
@@ -1120,6 +1257,55 @@ const APKLoader = {
         document.getElementById('status-position').textContent = '📍 1:1';
 
         EventBus.publish('apkClosed');
+    },
+
+    openFilePicker() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        // Поддерживаем все форматы
+        input.accept = [
+            // Архивы
+            '.apk', '.zip', '.aab', '.apks', '.xapk', '.jar', '.war', '.ear',
+            // Текстовые
+            '.json', '.xml', '.txt', '.html', '.htm', '.css', '.js', '.ts',
+            '.kt', '.java', '.smali', '.properties', '.yml', '.yaml', '.md',
+            '.toml', '.ini', '.cfg', '.conf', '.log', '.sh', '.bash',
+            '.py', '.rb', '.go', '.rs', '.c', '.cpp', '.h', '.hpp', '.cs',
+            '.php', '.lua', '.r', '.sql', '.gitignore', '.env',
+            '.dockerfile', '.makefile', '.cmake', '.gradle', '.csv', '.tsv',
+            '.swift', '.dart', '.scala', '.groovy', '.proto',
+            '.rtf', '.fnt', '.atlas', '.skel', '.bytes', '.bank',
+            // Изображения
+            '.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif', '.svg', '.ico',
+            '.tiff', '.psd', '.dds', '.tga', '.ktx', '.ktx2', '.hdr', '.exr',
+            // Видео
+            '.mp4', '.webm', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.mpeg', '.m4v',
+            // Аудио
+            '.mp3', '.wav', '.ogg', '.flac', '.aac', '.wma', '.m4a', '.opus', '.midi',
+            // 3D
+            '.glb', '.gltf', '.obj', '.fbx', '.stl', '.ply',
+            // Шрифты
+            '.ttf', '.otf', '.woff', '.woff2', '.eot',
+            // DEX
+            '.dex', '.odex', '.vdex', '.oat',
+            // Документы
+            '.pdf', '.docx', '.xlsx', '.pptx', '.epub',
+            // Unity
+            '.assets', '.bundle', '.assetbundle', '.unity', '.prefab', '.anim', '.controller', '.mat', '.mesh', '.shader',
+            // Игровые
+            '.sc', '.loc', '.lang',
+            // AI
+            '.onnx', '.tflite', '.gguf',
+            // Бинарные
+            '.bin', '.pak', '.obb', '.dat', '.res', '.so', '.class'
+        ].join(',');
+        
+        input.onchange = (e) => {
+            if (e.target.files.length) {
+                this.load(e.target.files[0]);
+            }
+        };
+        input.click();
     },
 
     toggleSidebar() {
@@ -3096,7 +3282,7 @@ const SearchManager = {
 };
 
 // ============================================================
-// МОДУЛЬ: UI
+// МОДУЛЬ: UI (обновлённый)
 // ============================================================
 const UI = {
     init() {
@@ -3122,6 +3308,11 @@ const UI = {
             APKLoader.closeSidebar();
         });
 
+        // Открытие файла через меню
+        document.getElementById('open-file-btn')?.addEventListener('click', () => {
+            APKLoader.openFilePicker();
+        });
+
         // Меню пункты
         document.querySelector('[data-menu="view"]')?.addEventListener('click', () => {
             alert('👁️ APK Viewer Pro\n\n' +
@@ -3132,12 +3323,12 @@ const UI = {
                 '🎵 Аудио: MP3, WAV, OGG, FLAC, Opus, MIDI\n' +
                 '🧊 3D: GLB, GLTF, OBJ, FBX, STL (с метаданными)\n' +
                 '🔤 Шрифты: TTF, OTF, WOFF, WOFF2 (с метаданными)\n' +
-                '📦 Архивы: ZIP, RAR, 7z, TAR, GZ\n' +
+                '📦 Архивы: ZIP, RAR, 7z, TAR, GZ, APK, AAB, APKS, XAPK, JAR\n' +
                 '💻 DEX: classes.dex, odex, vdex, oat\n' +
                 '📄 Документы: PDF, DOCX, XLSX, PPTX, EPUB\n' +
                 '🎮 Игровые: .sc, .loc, .lang, .assets, .bundle\n' +
                 '🤖 AI: ONNX, TFLite, GGUF\n' +
-                '🔧 Бинарные: HEX редактор с поиском и переходом');
+                '🔧 Бинарные: HEX редактор с поиском и переходом\n\n')
         });
 
         document.querySelector('[data-menu="help"]')?.addEventListener('click', () => {
@@ -3153,15 +3344,7 @@ const UI = {
         });
 
         document.getElementById('welcome-open')?.addEventListener('click', () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.apk,.zip';
-            input.onchange = (e) => {
-                if (e.target.files.length) {
-                    APKLoader.load(e.target.files[0]);
-                }
-            };
-            input.click();
+            APKLoader.openFilePicker();
         });
 
         document.getElementById('close-all-tabs')?.addEventListener('click', () => {
@@ -3169,8 +3352,8 @@ const UI = {
         });
 
         document.getElementById('btn-close-apk')?.addEventListener('click', () => {
-            if (AppState.get().apkZip) {
-                if (confirm('Закрыть APK? Все открытые вкладки будут закрыты.')) {
+            if (AppState.get().apkZip || AppState.get().fileTree.length) {
+                if (confirm('Закрыть файл? Все открытые вкладки будут закрыты.')) {
                     APKLoader.closeAPK();
                 }
             }
@@ -3259,7 +3442,7 @@ const UI = {
             console.error('❌ Ошибка инициализации Monaco:', err);
         });
 
-        // Drag and Drop
+        // Drag and Drop — поддерживаем все форматы
         let dropCounter = 0;
         document.addEventListener('dragover', (e) => e.preventDefault());
         document.addEventListener('dragenter', (e) => {
@@ -3276,10 +3459,16 @@ const UI = {
             const files = e.dataTransfer.files;
             if (files.length) {
                 const file = files[0];
-                if (file.name.endsWith('.apk') || file.name.endsWith('.zip')) {
+                const ext = Utils.getExtension(file.name);
+                // Проверяем поддерживаемые форматы
+                const supported = APKLoader._archiveExtensions.has(ext) || 
+                                APKLoader._singleFileExtensions.has(ext);
+                if (supported) {
                     await APKLoader.load(file);
                 } else {
-                    alert('Пожалуйста, перетащите APK или ZIP-файл.');
+                    alert('Формат не поддерживается. Поддерживаемые форматы: ' +
+                        Array.from(APKLoader._archiveExtensions).join(', ') + ', ' +
+                        Array.from(APKLoader._singleFileExtensions).join(', '));
                 }
             }
         });
@@ -3288,7 +3477,7 @@ const UI = {
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'o') {
                 e.preventDefault();
-                document.getElementById('welcome-open')?.click();
+                APKLoader.openFilePicker();
             }
 
             if (e.ctrlKey && e.key === 'f') {
