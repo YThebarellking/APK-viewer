@@ -133,7 +133,7 @@ const Utils = {
     },
 
     isArchiveFile(ext) {
-        return new Set(['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'apk', 'aab', 'apks', 'xapk']).has(ext);
+        return new Set(['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'apk', 'aab', 'apks', 'xapk', 'exe']).has(ext);
     },
 
     isDEXFile(ext) {
@@ -926,7 +926,7 @@ const SCParser = {
 // ============================================================
 const APKLoader = {
     // Поддерживаемые форматы архивов
-    _archiveExtensions: new Set(['zip', 'apk', 'aab', 'apks', 'xapk', 'jar', 'war', 'ear']),
+    _archiveExtensions: new Set(['zip', 'apk', 'aab', 'apks', 'xapk', 'jar', 'war', 'ear', 'exe']),
     
     // Поддерживаемые одиночные файлы (не архивы)
     _singleFileExtensions: new Set([
@@ -1175,12 +1175,11 @@ const APKLoader = {
             return state.fileCache.get(path);
         }
 
-        // Если это одиночный файл
         if (!state.apkZip) {
-            const content = state.fileCache.get(path);
-            if (content) return content;
             throw new Error(`Файл не найден: ${path}`);
         }
+
+        // ... дальше оставь старый код с ZIP без изменений
 
         const zip = state.apkZip;
         if (!zip) throw new Error('Архив не загружен');
@@ -1204,6 +1203,154 @@ const APKLoader = {
         state.fileCache.set(path, content);
 
         return content;
+    },
+
+    // ========== РАБОТА С ПАПКАМИ ==========
+
+    async loadFolder() {
+        const state = AppState.get();
+        if (state.isProcessing) return;
+        state.isProcessing = true;
+
+        try {
+            let files = [];
+
+            if ('showDirectoryPicker' in window) {
+                const dirHandle = await window.showDirectoryPicker();
+                files = await this._readDirectoryHandle(dirHandle);
+            } else {
+                files = await this._openFolderViaInput();
+            }
+
+            if (files.length) {
+                await this._processFolderFiles(files);
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Ошибка загрузки папки:', err);
+                alert('Не удалось загрузить папку: ' + err.message);
+            }
+        } finally {
+            state.isProcessing = false;
+        }
+    },
+
+    async _readDirectoryHandle(dirHandle, path = '') {
+        const files = [];
+        for await (const entry of dirHandle.values()) {
+            const entryPath = path ? `${path}/${entry.name}` : entry.name;
+            if (entry.kind === 'directory') {
+                const sub = await this._readDirectoryHandle(entry, entryPath);
+                files.push(...sub);
+            } else {
+                const file = await entry.getFile();
+                Object.defineProperty(file, 'webkitRelativePath', {
+                    value: entryPath,
+                    writable: false,
+                    configurable: true
+                });
+                files.push(file);
+            }
+        }
+        return files;
+    },
+
+    _openFolderViaInput() {
+        return new Promise((resolve) => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.webkitdirectory = true;
+            input.directory = true;
+            input.multiple = true;
+            input.addEventListener('change', () => {
+                resolve(Array.from(input.files));
+            });
+            input.click();
+        });
+    },
+
+    async _processFolderFiles(files) {
+        const state = AppState.get();
+
+        files.sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name));
+
+        const paths = files.map(f => f.webkitRelativePath || f.name);
+        const tree = this._buildTree(paths);
+
+        const sizeMap = new Map();
+        files.forEach(f => {
+            sizeMap.set(f.webkitRelativePath || f.name, f.size);
+        });
+        this._fillSizes(tree, sizeMap);
+
+        state.apkZip = null;
+        state.apkName = files[0]?.webkitRelativePath?.split('/')[0] || 'folder';
+        state.fileTree = tree;
+        state.fileCache.clear();
+
+        for (const file of files) {
+            const path = file.webkitRelativePath || file.name;
+            const buf = await file.arrayBuffer();
+            state.fileCache.set(path, buf);
+        }
+
+        const totalSize = files.reduce((s, f) => s + f.size, 0);
+        const count = files.length;
+
+        document.getElementById('file-count').textContent = `${count} файлов`;
+        document.getElementById('status-count').textContent = `📊 ${count}`;
+        document.getElementById('status-size').textContent = `📏 ${Utils.formatSize(totalSize)}`;
+        document.getElementById('apk-name').textContent = `📁 ${state.apkName}`;
+        document.getElementById('btn-close-apk').disabled = false;
+
+        TreeRenderer.render(tree);
+        EventBus.publish('apkLoaded', { tree, count });
+
+        const welcome = document.getElementById('welcome-screen');
+        if (welcome) welcome.style.display = 'none';
+        if (state.isMobile) this.closeSidebar();
+
+        if (paths.length > 0) {
+            try {
+                const content = await this.getFileContent(paths[0]);
+                const node = this._findNode(tree, paths[0]);
+                await ViewerManager.openFile(paths[0], content, node);
+            } catch (e) {
+                console.log('Не удалось открыть первый файл:', e);
+            }
+        }
+    },
+
+    _fillSizes(tree, sizeMap) {
+        for (const node of tree) {
+            if (!node.isFolder) {
+                node.size = sizeMap.get(node.path) || 0;
+            } else if (node.children) {
+                this._fillSizes(node.children, sizeMap);
+                node.size = node.children.reduce((s, c) => s + (c.size || 0), 0);
+            }
+        }
+    },
+
+    async _traverseEntry(entry, path, files) {
+        const fullPath = path ? `${path}/${entry.name}` : entry.name;
+        if (entry.isDirectory) {
+            const reader = entry.createReader();
+            const read = () => new Promise((res, rej) => reader.readEntries(res, rej));
+            let entries;
+            do {
+                entries = await read();
+                for (const e of entries) await this._traverseEntry(e, fullPath, files);
+            } while (entries.length > 0);
+        } else {
+            const file = await new Promise((res, rej) => entry.file(res, rej));
+            Object.defineProperty(file, 'webkitRelativePath', {
+                value: fullPath,
+                writable: false,
+                configurable: true
+            });
+            files.push(file);
+        }
     },
 
     closeAPK() {
@@ -1265,7 +1412,7 @@ const APKLoader = {
         // Поддерживаем все форматы
         input.accept = [
             // Архивы
-            '.apk', '.zip', '.aab', '.apks', '.xapk', '.jar', '.war', '.ear',
+            '.apk', '.zip', '.aab', '.apks', '.xapk', '.jar', '.war', '.ear', '.exe',
             // Текстовые
             '.json', '.xml', '.txt', '.html', '.htm', '.css', '.js', '.ts',
             '.kt', '.java', '.smali', '.properties', '.yml', '.yaml', '.md',
@@ -2736,8 +2883,7 @@ const ViewerManager = {
                 table.appendChild(thead);
 
                 const tbody = document.createElement('tbody');
-                const displayData = filteredData.slice(0, 500);
-                displayData.forEach(row => {
+                filteredData.forEach(row => {
                     const tr = document.createElement('tr');
                     headers.forEach(h => {
                         const td = document.createElement('td');
@@ -2746,16 +2892,6 @@ const ViewerManager = {
                     });
                     tbody.appendChild(tr);
                 });
-
-                if (filteredData.length > 500) {
-                    const tr = document.createElement('tr');
-                    const td = document.createElement('td');
-                    td.colSpan = headers.length;
-                    td.style.cssText = 'text-align:center;color:var(--text-muted);padding:6px;';
-                    td.textContent = `... и ещё ${filteredData.length - 500} строк`;
-                    tr.appendChild(td);
-                    tbody.appendChild(tr);
-                }
 
                 table.appendChild(tbody);
                 tableContainer.innerHTML = '';
@@ -3216,9 +3352,10 @@ const SearchManager = {
         this._debouncedSearch(query);
     },
 
-    _performSearch(query) {
+        async _performSearch(query) {
         const state = AppState.get();
         const tree = state.fileTree;
+        const mode = document.getElementById('search-mode')?.value || 'name';
 
         if (!tree.length) return;
 
@@ -3232,7 +3369,7 @@ const SearchManager = {
 
         document.getElementById('search-clear').classList.add('visible');
 
-        const filtered = this._filterTree(tree, query.toLowerCase());
+        const filtered = await this._filterTree(tree, query.toLowerCase(), mode);
         const count = this._countFiles(filtered);
 
         TreeRenderer.render(filtered);
@@ -3240,24 +3377,41 @@ const SearchManager = {
         TreeRenderer._searchQuery = query;
     },
 
-    _filterTree(tree, query) {
-        return tree
-            .map(node => {
-                if (node.isFolder && node.children) {
-                    const filteredChildren = this._filterTree(node.children, query);
-                    if (filteredChildren.length > 0) {
-                        return { ...node, children: filteredChildren };
-                    }
-                    return null;
-                } else if (!node.isFolder) {
-                    if (node.name.toLowerCase().includes(query)) {
-                        return { ...node };
-                    }
-                    return null;
+    async _filterTree(tree, query, mode = 'name') {
+        const results = [];
+        
+        for (const node of tree) {
+            if (node.isFolder && node.children) {
+                const filteredChildren = await this._filterTree(node.children, query, mode);
+                if (filteredChildren.length > 0) {
+                    results.push({ ...node, children: filteredChildren });
                 }
-                return null;
-            })
-            .filter(Boolean);
+            } else if (!node.isFolder) {
+                let match = false;
+                
+                if (mode === 'name' || mode === 'all') {
+                    if (node.name.toLowerCase().includes(query)) match = true;
+                }
+                
+                if (!match && (mode === 'content' || mode === 'all')) {
+                    if (Utils.isTextFile(node.ext)) {
+                        try {
+                            const content = await APKLoader.getFileContent(node.path);
+                            const text = typeof content === 'string' ? content : new TextDecoder().decode(content);
+                            if (text.toLowerCase().includes(query)) match = true;
+                        } catch (e) {
+                            // ignore
+                        }
+                    }
+                }
+                
+                if (match) {
+                    results.push({ ...node });
+                }
+            }
+        }
+        
+        return results;
     },
 
     _countFiles(tree) {
@@ -3311,6 +3465,10 @@ const UI = {
         // Открытие файла через меню
         document.getElementById('open-file-btn')?.addEventListener('click', () => {
             APKLoader.openFilePicker();
+        });
+        
+        document.getElementById('open-folder-btn')?.addEventListener('click', () => {
+            APKLoader.loadFolder();
         });
 
         // Меню пункты
@@ -3456,20 +3614,29 @@ const UI = {
         document.addEventListener('drop', async (e) => {
             e.preventDefault();
             dropCounter = 0;
+
+            const items = e.dataTransfer.items;
+            if (items && items.length) {
+                const hasDirs = Array.from(items).some(i => {
+                    const entry = i.webkitGetAsEntry?.();
+                    return entry && entry.isDirectory;
+                });
+                if (hasDirs) {
+                    const files = [];
+                    for (let i = 0; i < items.length; i++) {
+                        const entry = items[i].webkitGetAsEntry?.();
+                        if (entry) await APKLoader._traverseEntry(entry, '', files);
+                    }
+                    if (files.length) {
+                        await APKLoader._processFolderFiles(files);
+                        return;
+                    }
+                }
+            }
+
             const files = e.dataTransfer.files;
             if (files.length) {
-                const file = files[0];
-                const ext = Utils.getExtension(file.name);
-                // Проверяем поддерживаемые форматы
-                const supported = APKLoader._archiveExtensions.has(ext) || 
-                                APKLoader._singleFileExtensions.has(ext);
-                if (supported) {
-                    await APKLoader.load(file);
-                } else {
-                    alert('Формат не поддерживается. Поддерживаемые форматы: ' +
-                        Array.from(APKLoader._archiveExtensions).join(', ') + ', ' +
-                        Array.from(APKLoader._singleFileExtensions).join(', '));
-                }
+                await APKLoader.load(files[0]);
             }
         });
 
@@ -3515,6 +3682,11 @@ const UI = {
         console.log('🚀 APK Viewer Pro запущен');
         console.log('📦 Поддерживается 100+ форматов файлов');
         console.log('📱 Адаптирован для мобильных устройств');
+
+                document.getElementById('search-mode')?.addEventListener('change', () => {
+            const query = document.getElementById('search-input').value;
+            if (query) SearchManager.search(query);
+        });
     }
 };
 
