@@ -15,7 +15,8 @@
                 <button class="menu-btn" id="menu-toggle" aria-label="Меню">☰</button>
                 <span class="menu-item" data-menu="view">👁️ Вид</span>
                 <span class="menu-item" data-menu="help">❓ Помощь</span>
-                <span class="menu-item" id="open-file-btn">📂 Открыть</span>
+                <span class="menu-item" id="open-file-btn">📂 Файл</span>
+                <span class="menu-item" id="open-folder-btn">📁 Папка</span>
             </div>
             <div class="menu-right">
                 <span id="apk-name" class="status-badge">📱 Нет файла</span>
@@ -32,6 +33,11 @@
                 </div>
                 <div id="search-box">
                     <input type="text" id="search-input" placeholder="🔍 Поиск файлов..." />
+                    <select id="search-mode">
+                        <option value="fileName">Название файла</option>
+                        <option value="content">Содержимое файла</option>
+                        <option value="all">Все</option>
+                    </select>
                     <button id="search-clear">✕</button>
                 </div>
                 <div id="tree-container"></div>
@@ -50,8 +56,11 @@
                     <div id="welcome-screen">
                         <div class="welcome-icon">📱</div>
                         <h2>APK Viewer Pro</h2>
-                        <p>Откройте файл для просмотра содержимого</p>
-                        <button id="welcome-open" class="btn-primary">📂 Открыть файл</button>
+                        <p>Откройте файл или папку для просмотра содержимого</p>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+                            <button id="welcome-open" class="btn-primary">📂 Открыть файл</button>
+                            <span class="menu-item" id="open-folder-btn">📁 Открыть папку</span>
+                        </div>
                         <div class="welcome-hint">или перетащите файл сюда</div>
                     </div>
                 </div>
