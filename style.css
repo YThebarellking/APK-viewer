@@ -1864,3 +1864,16 @@ body {
         padding-bottom: max(2px, env(safe-area-inset-bottom));
     }
 }
+#search-box select {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 4px 6px;
+    font-size: 12px;
+    outline: none;
+    height: 32px;
+    min-height: 32px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
